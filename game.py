@@ -7,6 +7,7 @@ wisp = Card('Wisp', 0, 1, 1)
 sergeant = Card('Sergeant', 1, 1, 1)
 blood_imp = Card('Blood Imp', 1, 1, 1)
 belcher = Card('Belcher', 4, 5, 5)
+flame_imp = Card('Flame Imp', 1, 3, 2)
 
 # Initialize two players
 anduin = Player('Anduin', 'priest')
