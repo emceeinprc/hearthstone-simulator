@@ -8,6 +8,10 @@ class Player(object):
         self.hand = []
         self.board = []
         self.defense = 30
+        self.mana_limit = 1
+        self.mana = 1
+        self.active = True
+        self.attack = 0
 
     def change_turn(self):
         print self.name.title() + " turn has ended."
