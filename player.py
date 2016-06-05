@@ -12,6 +12,7 @@ class Player(object):
         self.mana = 1
         self.active = True
         self.attack = 0
+        self.Frozen = False
 
     def change_turn(self):
         print self.name.title() + " turn has ended."

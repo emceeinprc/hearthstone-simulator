@@ -1,5 +1,4 @@
 #TODO: think about how to ensure only the targetted card (and not other instances of that card) gets attacked
-#TODO: add an attribute for a card to show whether or not it can attack this turn
 
 from player import Player
 from card import Card
@@ -135,7 +134,6 @@ def fetch_passive_player():
         return player1
 
 def end_turn():
-    #TODO: figure out why this requires a parameter and can't just call active_player
     if player1.active:
         player2.active = True
         player1.active = False
@@ -151,6 +149,10 @@ def end_turn():
 
     # The newly active player draws a card
     draw_card(active_player)
+
+    # The board of the active player is able to attack
+    for i in xrange(0, len(active_player.board)):
+        active_player.board[i].frozen = False
 
 def cards_visible():
     active_player = fetch_active_player()
@@ -169,7 +171,8 @@ def draw_card(player):
         print "The player has been fatigued! You now have " + str(player.defense) + " hp."
 
         # Check if player has been defeated
-        remove_card(player)
+        if player.defense <= 0:
+            defeat(player)
         return
 
     # First, choose a card from the deck and make a copy of it
@@ -213,8 +216,7 @@ def remove_card(target, player):
 
     # When the target is a player
     if type(target) == Player and target.defense <= 0:
-        #TODO: add end game mechanics
-        print target.name.title() + " has been defeated!"
+        defeat(player)
         return
 
     # When the target is a card
@@ -237,6 +239,9 @@ def attack(source, target): # target can be either a Card or a Player
                 print "That is not a valid target"
                 return
 
+    if source.frozen:
+        print "This character cannot attack now"
+        return
     # Describe what is happening
     print source.name.title() + " is attacking " + target.name.title() + ", which has " + str(target.defense) + " hp!"
 
@@ -250,3 +255,16 @@ def attack(source, target): # target can be either a Card or a Player
     # Check if cards to be removed, and remove if so
     remove_card(source, active_player)
     remove_card(target, passive_player)
+
+def defeat(player):
+    print player.name.title() + " has been defeated!"
+
+
+def lookup_target(target):
+    active_player = fetch_active_player()
+    passive_player = fetch_passive_player()
+
+    new_card = target
+    for i in xrange(0, len(passive_player.board)):
+        if board[i] == target:
+            print i

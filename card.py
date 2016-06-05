@@ -7,6 +7,7 @@ class Card(object):
         self.mana = mana
         self.attack = attack
         self.defense = defense
+        self.frozen = True
 
 #    def attack(self):
 #        return 2
