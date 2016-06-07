@@ -268,3 +268,8 @@ def lookup_target(target):
     for i in xrange(0, len(passive_player.board)):
         if board[i] == target:
             print i
+
+# Initialize the game
+initialize_universe()
+card_to_play = input("What card do you want to play? ")
+print card_to_play
