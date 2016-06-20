@@ -8,6 +8,8 @@ class Card(object):
         self.attack = attack
         self.defense = defense
         self.frozen = True
+        self.taunt = False
+        self.position = 0
 
 #    def attack(self):
 #        return 2
