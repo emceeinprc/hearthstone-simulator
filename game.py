@@ -1,8 +1,8 @@
-# TODO: think about how to ensure only the targetted card (and not other
-# instances of that card) gets attacked
+# TODO: When a card gets damaged in one player's board, it should not affect that card in another player's hand
 
 from player import Player
 from card import Card
+from spell import Spell
 import random
 
 # Define the cards available
@@ -10,10 +10,9 @@ import random
 wisp = Card('Wisp', 0, 1, 1)
 sergeant = Card('Sergeant', 1, 1, 1)
 blood_imp = Card('Blood Imp', 1, 1, 1)
-belcher = Card('Belcher', 4, 5, 5)
-flame_imp = Card('Flame Imp', 1, 3, 2)
-
-deathlord = Card('Deathlord', 3, 2, 8)
+belcher = Card('Belcher', 4, 5, 5, has_taunt=True)
+flame_imp = Card('Flame Imp', 1, 3, 2, has_divine_shield=True)
+deathlord = Card('Deathlord', 3, 2, 8, has_taunt=True)
 raid_leader = Card('Raid Leader', 3, 2, 2)
 shade_of_naxxramus = Card('Shade of Naxxramus', 3, 2, 2)
 loot_hoarder = Card('Loot Hoarder', 2, 2, 1)
@@ -21,6 +20,9 @@ piloted_shredder = Card('Piloted Shredder', 4, 4, 3)
 frostwolf_warlord = Card('Frostwolf Warlord', 5, 4, 4)
 emperor_thaurissan = Card('Emperor Thaurissan', 6, 5, 5)
 dr_boom = Card('Dr Boom', 7, 7, 7)
+
+fireball = Spell('Fireball', 4, {'offense': 6, 'requires target': True})
+arcane_missiles = Spell('Arcane Missiles', 1, {'offense': 1, 'spread': 'enemy', 'spread_random': True, 'num_targets': 3})
 
 # Initialize two players
 player1 = Player('Anduin', 'priest')
@@ -52,13 +54,13 @@ def initialize_universe():
     card_library.append(emperor_thaurissan)
     card_library.append(dr_boom)
 
+    card_library.append(fireball)
+    card_library.append(arcane_missiles)
+
     # Fill the players' list with those cards
     for card in card_library:
         player1.deck.append(card)
         player2.deck.append(card)
-
-    # Create a board
-
 
     # Set player 1 to be the only active player
     player2.active = False
@@ -83,11 +85,11 @@ def reset():
     player2.mana_limit = 1
 
     # Clear cards from board, hands, and deck
-    del player1.board[0:len(player1.board)]
+    [board[i] == "[ ]" for i in range(1, 14)]
+
     del player1.hand[0:len(player1.hand)]
     del player1.deck[0:len(player1.deck)]
 
-    del player2.board[0:len(player2.board)]
     del player2.hand[0:len(player2.hand)]
     del player2.deck[0:len(player2.deck)]
 
@@ -125,27 +127,22 @@ def print_hand(player):
     """Cycle through all cards in hand and print each one"""
     print player.name.title() + "'s hand has " + str(len(player.hand)) + " cards: "
     for i in xrange(0, len(player.hand)):
-        print "%s %s mana (%r/%s)" % (player.hand[i].name, player.hand[i].mana, player.hand[i].attack, player.hand[i].defense)
-
+        if isinstance(player.hand[i], Card):
+            print "%s %s mana (%r/%s)" % (player.hand[i].name, player.hand[i].mana, player.hand[i].attack, player.hand[i].defense)
+        elif isinstance(player.hand[i], Spell):
+            print "%s %s mana" % (player.hand[i].name, player.hand[i].mana)
 
 def print_board():
-    print "%s (%r hp)" % (board[0].name, board[0].defense)
+    print "%s (%r hp, %r armor)" % (board[0].name, board[0].defense, board[0].armor)
     for i in range(1, len(board)-1):
         if isinstance(board[i], str):
             print "%s: %s" % (i, board[i])
         else:
-            print "%s: %s (%r/%s)" % (i, board[i].name, board[i].attack, board[i].defense)
+            print "%s: %s (%r/%s) %s" % (i, board[i].name, board[i].attack, board[i].defense, board[i].generate_tags())
 
         if i == 7:
             print "\n"
-    print "%s (%r hp)" % (board[15].name, board[15].defense)
-
-
-#def print_board(player):
-#    """Cycle through all cards on board and print each one"""
-#    print player.name.title() + "'s board has " + str(len(player.board)) + " cards: "
-#    for i in xrange(0, len(player.board)):
-#        print "%s %s mana (%r/%s)" % (player.board[i].name, player.board[i].mana, player.board[i].attack, player.board[i].defense)
+    print "%s (%r hp, %s armor)" % (board[15].name, board[15].defense, board[15].armor)
 
 
 def fetch_active_player():
@@ -205,9 +202,10 @@ def cards_visible():
 
 
 def draw_card(player):
-    """Cause fatigue if no cards are in deck"""
+    # Cause fatigue if no cards are in deck
     if len(player.deck) == 0:
-        player.defense = player.defense - 1
+        player.defense = player.defense - (1 * player.times_fatigued)
+        player.times_fatigued += 1
         print "The player has been fatigued! You now have " + str(player.defense) + " hp."
 
         # Check if player has been defeated
@@ -222,11 +220,12 @@ def draw_card(player):
     # Remove the original from the deck
     del player.deck[card_location]
 
-    # Then add the copy to the player's hand
-    player.hand.append(new_card)
-
-    # Report what happens
-    print player.name.title() + " has drawn " + new_card.name
+    # Then add the copy to the player's hand, or destroy if hand is full
+    if len(player.hand) == 10:
+        print "Your hand is too full! " + new_card.name + " has been destroyed."
+    else:
+        player.hand.append(new_card)
+        print player.name.title() + " has drawn " + new_card.name
 
 
 def play_card(card, position):
@@ -237,12 +236,20 @@ def play_card(card, position):
         print "You don't have this card in your hand"
         return
 
+    if not isinstance(card, Card):
+        print "You need to use cast_spell if this is a spell"
+        return
+
     if active_player.mana < card.mana:
         print "Mana insufficient :("
         return
 
     if position == 0 or position == 15:
         print "You can't do that"
+        return
+
+    if isinstance(board[position], Card):
+        print "There is already a card there"
         return
 
     if active_player == player1 and position < 7:
@@ -267,6 +274,34 @@ def play_card(card, position):
     print active_player.name.title() + " puts " + card.name.title() + " on the board!"
 
 
+def cast_spell(spell, target_position=-1):
+    active_player = fetch_active_player()
+
+    # Handle exceptions
+    if spell not in active_player.hand:
+        print "You don't have this spell in your hand"
+        return
+
+    if active_player.mana < spell.mana:
+        print "Mana insufficient :("
+        return
+
+    if spell.properties['requires target'] and target_position < 0:
+        print "You must specify a valid target"
+        return
+
+    # Unfurl the properties of the spell
+    if 'offense' in spell.properties.keys():
+        board[int(target_position)].update_defense(spell.properties['offense'])
+        print str(spell.properties['offense']) + " of damage was laid down on " + board[int(target_position)].name
+
+    # Remove the card from the player's hand
+    active_player.hand.remove(spell)
+
+    # Update the player's mana
+    active_player.mana = active_player.mana - spell.mana
+
+
 def remove_card(target, player):
 
     # When the target is a player
@@ -276,55 +311,73 @@ def remove_card(target, player):
 
     # When the target is a card
     if type(target == Card) and target.defense <= 0:
+
+        # Remove it from the board
         board[target.position] = "[ ]"
         target.position = 0
+
+        # Ensure that all other instances of the card are not affected
+        target.reset()
+
+        # Report what happened
         print target.name.title() + " is removed from the board"
         return
 
 
-def attack(source, position):  # target can be either a Card or a Player
+def attack(source_position, target_position):  # target can be either a Card or a Player
     active_player = fetch_active_player()
     passive_player = fetch_passive_player()
 
-    # TODO Ensure the target is valid
-    if source not in board:
+    # Check validity
+    if isinstance(board[source_position], str):
         print "You can't do that"
         return
 
-    if isinstance(board[position], str):
+    if isinstance(board[target_position], str):
         print "That is not a valid target"
         return
 
-    if source.frozen:
+    if board[source_position].frozen:
         print "This character cannot attack now"
         return
+
+    if board[target_position].has_stealth:
+        print "You cannot attack a character with stealth"
+        return
+
+    if active_player == player1:
+        for i in range(1, 7):
+            if isinstance(board[i], Card):
+                if board[i].has_taunt and target_position != i:
+                    print "You must attack the character with taunt"
+                    return
+    else:
+        for i in range(8, 14):
+            if isinstance(board[i], Card):
+                if board[i].has_taunt and target_position != i:
+                    print "You must attack the character with taunt"
+                    return
+
     # Describe what is happening
-    print source.name.title() + " is attacking " + board[position].name.title() + ", which has " + str(board[position].defense) + " hp!"
+    print board[source_position].name.title() + " is attacking " + board[target_position].name.title() + ", which has " + str(board[target_position].defense) + " hp!"
 
     # Update the defenses
-    board[position].update_defense(source.attack)
-    source.update_defense(board[position].attack)
+    board[target_position].update_defense(board[source_position].attack)
+    board[source_position].update_defense(board[target_position].attack)
 
     # Describe the outcome
-    print board[position].name.title() + " now has " + str(board[position].defense) + " hp"
+    print board[target_position].name.title() + " now has " + str(board[target_position].defense) + " hp"
 
     # Check if cards to be removed, and remove if so
-    remove_card(source, active_player)
-    remove_card(board[position], passive_player)
+    remove_card(board[source_position], active_player)
+    remove_card(board[target_position], passive_player)
 
+    # Ensure the card (if it survives) cannot attack again
+    if isinstance(board[source_position], Card):
+        board[source_position].frozen = True
 
 def defeat(player):
     print player.name.title() + " has been defeated!"
-
-
-def lookup_target(target):
-    active_player = fetch_active_player()
-    passive_player = fetch_passive_player()
-
-    new_card = target
-    for i in xrange(0, len(passive_player.board)):
-        if board[i] == target:
-            print i
 
 
 def print_instructions():
@@ -347,9 +400,26 @@ def parse_instructions(user_action):
     else:
         print "I'm not smart enough to do that yet"
 
+def give_taunt(position):
+    board[position].has_taunt = True
 
-def taunt(card):
-    card.taunt = True
+def go():
+    [end_turn() for i in xrange(0, 20)]
+
+def eligible_targets(spell, target_position):
+    eligible_targets = []
+
+    active_player = fetch_active_player()
+
+    if spell.properties['spread'] == 'target':
+        eligible_targets.append(target_position)
+        return eligible_targets
+
+    if spell.properties['spread'] == 'target plus adjacent':
+        eligible_targets.append(target_position - 1)
+        eligible_targets.append(target_position)
+        eligible_targets.append(target_position + 1)
+        return eligible_targets
 
 # Initialize the game
 initialize_universe()
