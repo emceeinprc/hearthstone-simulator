@@ -21,8 +21,8 @@ frostwolf_warlord = Card('Frostwolf Warlord', 5, 4, 4)
 emperor_thaurissan = Card('Emperor Thaurissan', 6, 5, 5)
 dr_boom = Card('Dr Boom', 7, 7, 7)
 
-fireball = Spell('Fireball', 4, {'offense': 6, 'requires target': True, 'spread': 'target'})
-arcane_missiles = Spell('Arcane Missiles', 1, {'offense': 1, 'spread': 'enemy', 'spread_random': True, 'num_targets': 3})
+fireball = Spell('Fireball', 4, {'offense': 6, 'requires_target': True, 'spread': 'target'})
+arcane_missiles = Spell('Arcane Missiles', 1, {'offense': 1, 'spread': 'enemy', 'spread_random': True, 'num_instances': 3, 'requires_target': False})
 
 # Initialize two players
 player1 = Player('Anduin', 'priest')
@@ -275,6 +275,8 @@ def play_card(card, position):
 
 
 def cast_spell(spell, target_position=-1):
+    # TODO: finish this damn function
+
     active_player = fetch_active_player()
 
     # Handle exceptions
@@ -286,14 +288,25 @@ def cast_spell(spell, target_position=-1):
         print "Mana insufficient :("
         return
 
-    if spell.properties['requires target'] and target_position < 0:
+    if spell.properties['requires_target'] and target_position < 0:
         print "You must specify a valid target"
         return
 
+    eligible_targets = get_eligible_targets(spell, target_position)
+    if target_position not in eligible_targets and spell.properties['requires_target']:
+        print "That is not a valid target"
+        return
+
+    # Generate the target of the spell
+    # TODO: Use recursion to cast the spell multiple times?
+
     # Unfurl the properties of the spell
+
     if 'offense' in spell.properties.keys():
-        board[int(target_position)].update_defense(spell.properties['offense'])
+        target_position = generate_target(eligible_targets)
+        board[target_position].update_defense(spell.properties['offense'])
         print str(spell.properties['offense']) + " of damage was laid down on " + board[int(target_position)].name
+        remove_card(board[target_position], active_player)
 
     # Remove the card from the player's hand
     active_player.hand.remove(spell)
@@ -406,7 +419,8 @@ def give_taunt(position):
 def go():
     [end_turn() for i in xrange(0, 20)]
 
-def eligible_targets(spell, target_position):
+def get_eligible_targets(spell, target_position):
+    """Given a spell, a preliminary target, and the state of the board, return all eligible targets"""
     eligible_targets = []
     final_targets = []
 
@@ -450,14 +464,31 @@ def eligible_targets(spell, target_position):
     if spell.properties['spread'] == 'all characters':
         [eligible_targets.append(i) for i in xrange(0, 15 + 1)]
 
-    print eligible_targets
+    if spell.properties['spread'] == 'your hero':
+        if active_player == player1:
+            eligible_targets.append(15)
+        else:
+            eligible_targets.append(0)
+
+    if spell.properties['spread'] == 'enemy hero':
+        if active_player == player1:
+            eligible_targets.append(0)
+        else:
+            eligible_targets.append(15)
+
     # Return only board positions with a minion or player
     for target in eligible_targets:
         if not isinstance(board[target], str):
             final_targets.append(target)
 
-    print final_targets
     return final_targets
+
+
+def generate_target(eligible_targets):
+    """ Chooses a random element of the eligible targets list"""
+    return random.choice(eligible_targets)
 
 # Initialize the game
 initialize_universe()
+[end_turn() for i in range(15)]
+status()
