@@ -21,7 +21,7 @@ frostwolf_warlord = Card('Frostwolf Warlord', 5, 4, 4)
 emperor_thaurissan = Card('Emperor Thaurissan', 6, 5, 5)
 dr_boom = Card('Dr Boom', 7, 7, 7)
 
-fireball = Spell('Fireball', 4, {'offense': 6, 'requires target': True})
+fireball = Spell('Fireball', 4, {'offense': 6, 'requires target': True, 'spread': 'target'})
 arcane_missiles = Spell('Arcane Missiles', 1, {'offense': 1, 'spread': 'enemy', 'spread_random': True, 'num_targets': 3})
 
 # Initialize two players
@@ -408,18 +408,56 @@ def go():
 
 def eligible_targets(spell, target_position):
     eligible_targets = []
+    final_targets = []
 
     active_player = fetch_active_player()
 
     if spell.properties['spread'] == 'target':
         eligible_targets.append(target_position)
-        return eligible_targets
 
     if spell.properties['spread'] == 'target plus adjacent':
-        eligible_targets.append(target_position - 1)
-        eligible_targets.append(target_position)
-        eligible_targets.append(target_position + 1)
-        return eligible_targets
+        if target_position == 0 or target_position == 15:
+            eligible_targets.append(target_position)
+        elif target_position == 1 or target_position == 8:
+            eligible_targets.append(target_position)
+            eligible_targets.append(target_position + 1)
+        elif target_position == 7 or target_position == 14:
+            eligible_targets.append(target_position - 1)
+            eligible_targets.append(target_position)
+        else:
+            eligible_targets.append(target_position - 1)
+            eligible_targets.append(target_position)
+            eligible_targets.append(target_position + 1)
+
+    if spell.properties['spread'] == 'enemy':
+        if active_player == player1:
+            [eligible_targets.append(i) for i in xrange(0, 7 + 1)]
+        else:
+            [eligible_targets.append(i) for i in xrange(8, 15 + 1)]
+
+    if spell.properties['spread'] == 'enemy minions':
+        if active_player == player1:
+            [eligible_targets.append(i) for i in xrange(1, 7 + 1)]
+        else:
+            [eligible_targets.append(i) for i in xrange(8, 14 + 1)]
+
+    if spell.properties['spread'] == 'friendly minions':
+        if active_player == player1:
+            [eligible_targets.append(i) for i in xrange(8, 14 + 1)]
+        else:
+            [eligible_targets.append(i) for i in xrange(1, 7 + 1)]
+
+    if spell.properties['spread'] == 'all characters':
+        [eligible_targets.append(i) for i in xrange(0, 15 + 1)]
+
+    print eligible_targets
+    # Return only board positions with a minion or player
+    for target in eligible_targets:
+        if not isinstance(board[target], str):
+            final_targets.append(target)
+
+    print final_targets
+    return final_targets
 
 # Initialize the game
 initialize_universe()
